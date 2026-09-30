@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>학생부 입력 현황판</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #fff; --text: #1f2933; --muted: #6b7280; --line: #e2e5ea;
+    --primary: #2563eb;
+    --s-none: #e5e7eb; --s-writing: #fde68a; --s-done: #bfdbfe; --s-checked: #bbf7d0; --s-fix: #fecaca;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+         background: var(--bg); color: var(--text); font-size: 18px; line-height: 1.5; }
+  header { display: flex; justify-content: space-between; align-items: center; gap: 12px;
+           padding: 16px 32px; background: var(--card); border-bottom: 1px solid var(--line); }
+  header h1 { margin: 0; font-size: 26px; }
+  header .tools { display: flex; gap: 8px; }
+  main { max-width: 1320px; margin: 0 auto; padding: 24px 32px 48px; }
+  section.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+                 padding: 20px 24px; margin-bottom: 18px; }
+  h2 { font-size: 20px; margin: 0 0 14px; }
+  button { font: inherit; cursor: pointer; border: 1px solid #cbd2d9; background: #fff;
+           border-radius: 8px; padding: 8px 16px; }
+  button:hover { background: #f0f4ff; }
+  button.primary:hover { background: #1d4ed8; }
+  .notice { background: #fff7e6; border: 1px solid #fcd9a0; border-radius: 10px; padding: 12px 18px;
+            margin-bottom: 18px; font-size: 16px; }
+  button.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+  button.danger { color: #b91c1c; border-color: #fca5a5; }
+  input, select, textarea { font: inherit; padding: 8px 10px; border: 1px solid #cbd2d9; border-radius: 8px; }
+  input[type="checkbox"] { width: 20px; height: 20px; vertical-align: -3px; }
+
+  /* 요약 */
+  .overall { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+  .overall strong { font-size: 34px; min-width: 90px; }
+  .bar { flex: 1; height: 18px; background: var(--s-none); border-radius: 9px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; background: #22c55e; }
+  .counts { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+  .chip { padding: 4px 14px; border-radius: 14px; font-size: 16px; }
+  .counts .chip b { margin-left: 4px; }
+  .sub-progress { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; }
+  .sub-progress h3 { font-size: 17px; margin: 0 0 8px; color: var(--muted); }
+  .row { display: flex; align-items: center; gap: 10px; font-size: 16px; margin-bottom: 6px; }
+  .row .label { width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .bar { height: 12px; }
+  .row .pct { width: 52px; text-align: right; }
+
+  /* 필터 */
+  .filters { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; }
+  .filters label { cursor: pointer; }
+  .legend { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* 현황표 */
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 800px; }
+  th, td { border: 1px solid var(--line); padding: 0; text-align: center; }
+  th { background: #f0f2f5; padding: 10px 8px; font-size: 16px; }
+  td.cls { font-weight: bold; padding: 8px 14px; white-space: nowrap; font-size: 18px; }
+  td.homeroom { width: 130px; }
+  td.homeroom input { width: 100%; border: none; text-align: center; background: transparent; padding: 12px 6px; }
+  td.homeroom input:focus { outline: 2px solid var(--primary); }
+  td.cell { cursor: pointer; position: relative; height: 58px; min-width: 110px; font-size: 16px; }
+  td.cell:hover { outline: 3px solid var(--primary); outline-offset: -3px; }
+  td.cell .t { display: block; font-size: 14px; color: #374151; }
+  td.cell.memo::after { content: ""; position: absolute; top: 6px; right: 6px; width: 10px; height: 10px;
+                        border-radius: 50%; background: #dc2626; }
+  td.cell.dim { opacity: 0.25; }
+  .st-none { background: var(--s-none); } .st-writing { background: var(--s-writing); }
+  .st-done { background: var(--s-done); } .st-checked { background: var(--s-checked); }
+  .st-fix { background: var(--s-fix); }
+  .empty { color: var(--muted); padding: 20px; text-align: center; }
+
+  /* 대화상자 */
+  dialog { border: none; border-radius: 12px; padding: 24px 28px; width: min(560px, 92vw);
+           box-shadow: 0 10px 30px rgba(0,0,0,.2); }
+  dialog::backdrop { background: rgba(0,0,0,.35); }
+  dialog h2 { margin-bottom: 14px; }
+  .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+  .field label { font-size: 16px; color: var(--muted); }
+  .field textarea { min-height: 100px; resize: vertical; }
+  .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 12px; }
+  .status-pick { display: flex; flex-wrap: wrap; gap: 8px; }
+  .status-pick label { padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 16px;
+                       border: 3px solid transparent; }
+  .status-pick input { display: none; }
+  .status-pick input:checked + span { font-weight: bold; }
+  .status-pick label:has(input:checked) { border-color: var(--text); }
+  .grade-rows .grade-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+  .grade-rows input { width: 90px; }
+  .hint { font-size: 15px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>📋 학생부 입력 현황판</h1>
+  <div class="tools">
+    <span class="hint" id="saveStatus" style="align-self:center"></span>
+    <button id="openSettings">⚙ 설정</button>
+  </div>
+</header>
+
+<main>
+  <div class="notice" id="sampleNotice" hidden>
+    ℹ️ 지금 보이는 교사 이름과 메모는 연습용 <b>가상 자료</b>입니다.
+    실제로 쓰려면 <b>⚙ 설정 → 빈 표로 시작</b>을 누르세요. 학생 개인정보는 입력하지 마세요.
+  </div>
+
+  <section class="card" id="summary"></section>
+
+  <section class="card">
+    <div class="filters">
+      <label>학년
+        <select id="gradeFilter" autocomplete="off"></select>
+      </label>
+      <label><input type="checkbox" id="onlyIncomplete" autocomplete="off"> 미완료만</label>
+      <label><input type="checkbox" id="onlyFix" autocomplete="off"> 보완요청만</label>
+      <div class="legend" id="legend"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="table-wrap" id="tableWrap"></div>
+    <p class="hint">칸을 클릭하면 상태·담당교사·메모를 편집합니다. 담임 이름은 표에서 바로 입력하세요. 빨간 점은 메모가 있는 칸입니다.</p>
+  </section>
+</main>
+
+<!-- 칸 편집 창 -->
+<dialog id="cellDialog">
+  <form method="dialog" id="cellForm">
+    <h2 id="cellTitle"></h2>
+    <div class="field">
+      <label>상태</label>
+      <div class="status-pick" id="statusPick"></div>
+    </div>
+    <div class="field">
+      <label for="cellTeacher">담당교사</label>
+      <input id="cellTeacher" placeholder="예: 김선생 (비우면 담임으로 표시)">
+    </div>
+    <div class="field">
+      <label for="cellMemo">메모</label>
+      <textarea id="cellMemo" placeholder="예: 진로활동 2명 분량 보완 요청 (10/2)"></textarea>
+    </div>
+    <div class="actions">
+      <button value="cancel" formnovalidate>취소</button>
+      <button value="save" class="primary">저장</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 설정 창 -->
+<dialog id="settingsDialog">
+  <form method="dialog" id="settingsForm">
+    <h2>⚙ 설정</h2>
+    <div class="field">
+      <label>학년별 학급 수</label>
+      <div class="grade-rows" id="gradeRows"></div>
+      <div><button type="button" id="addGrade">+ 학년 추가</button></div>
+    </div>
+    <div class="field">
+      <label for="areasInput">점검 영역 (한 줄에 하나)</label>
+      <textarea id="areasInput" rows="6"></textarea>
+      <span class="hint">영역 이름을 바꾸면 그 영역에 기록된 내용은 보이지 않게 됩니다.</span>
+    </div>
+    <div class="actions">
+      <button type="button" id="loadSample">가상 예시 자료 불러오기</button>
+      <button type="button" class="danger" id="resetAll" style="margin-right:auto">빈 표로 시작</button>
+      <button value="cancel" formnovalidate>취소</button>
+      <button value="save" class="primary">적용</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const STORAGE_KEY = "schoolRecordBoard.v1";
+
+const STATUSES = [
+  { id: "none",    label: "미입력",   cls: "st-none" },
+  { id: "writing", label: "입력중",   cls: "st-writing" },
+  { id: "done",    label: "입력완료", cls: "st-done" },
+  { id: "checked", label: "점검완료", cls: "st-checked" },
+  { id: "fix",     label: "보완요청", cls: "st-fix" },
+];
+const statusOf = id => STATUSES.find(s => s.id === id) || STATUSES[0];
+
+const DEFAULT_STATE = {
+  grades: [{ grade: 1, classes: 5 }, { grade: 2, classes: 5 }, { grade: 3, classes: 5 }],
+  areas: ["자율활동", "동아리활동", "진로활동", "행동특성 및 종합의견", "교과세특"],
+  homeroom: {},   // "1-1": "김선생"
+  cells: {},      // "1-1|자율활동": { status, teacher, memo }
+  sample: false,  // 가상 예시 자료 여부
+  savedAt: null,
+};
+
+// 연습용 가상 자료: 실제 인물·학생과 무관한 이름과 메모
+function makeSample() {
+  const s = structuredClone(DEFAULT_STATE);
+  s.sample = true;
+  const family = ["김", "이", "박", "최", "정", "강", "조", "윤", "장", "임", "한", "오", "서", "신", "권"];
+  const given = ["가람", "나래", "다온", "라온", "마루", "바다", "새봄", "아라", "하늘", "누리", "보라", "단비", "해솔", "초롱", "한결"];
+  const subjectTeachers = ["국어 한가람(가상)", "수학 오누리(가상)", "영어 서단비(가상)"];
+  const memos = {
+    fix: ["2명 분량 보완 요청", "기재 금지어(대회명) 수정 요청", "글자 수 초과 1건 확인 요청"],
+    writing: ["마감 전날까지 입력 예정", "", ""],
+  };
+  // 규칙적인 패턴으로 상태를 흩어 놓아 진행률이 다양하게 보이게 함
+  const pattern = ["checked", "checked", "done", "writing", "checked", "fix", "none", "done", "checked", "writing", "checked"];
+  let i = 0;
+  s.grades.forEach((g, gi) => {
+    for (let c = 1; c <= g.classes; c++) {
+      const cls = `${g.grade}-${c}`;
+      const n = gi * 5 + c - 1;
+      s.homeroom[cls] = `${family[n % family.length]}${given[(n * 7) % given.length]}(가상)`;
+      s.areas.forEach((a, ai) => {
+        // 3학년은 진행이 더 많이 된 것으로
+        let status = pattern[(i++ * 3 + ai + gi) % pattern.length];
+        if (g.grade === 3 && status === "none") status = "checked";
+        const list = memos[status] || [""];
+        const memo = list[(i + ai) % list.length];
+        const teacher = a === "교과세특" && status !== "checked" ? subjectTeachers[(n + ai) % subjectTeachers.length] : "";
+        if (status !== "none" || memo || teacher) s.cells[`${cls}|${a}`] = { status, teacher, memo };
+      });
+    }
+  });
+  return s;
+}
+
+let state = load();
+let editingKey = null;
+
+// ---------- 저장 ----------
+function load() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (saved && Array.isArray(saved.grades) && Array.isArray(saved.areas)) {
+      return { ...structuredClone(DEFAULT_STATE), ...saved };
+    }
+  } catch (e) { /* 저장된 값이 없거나 손상됨 */ }
+  return makeSample(); // 처음 열었을 때는 가상 예시 자료로 시작
+}
+function save() {
+  state.savedAt = new Date().toISOString();
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  catch (e) { $("#saveStatus").textContent = "⚠ 저장 실패 (브라우저 저장 공간 확인)"; return; }
+  renderSaveStatus();
+}
+function renderSaveStatus() {
+  if (!state.savedAt) { $("#saveStatus").textContent = ""; return; }
+  const t = new Date(state.savedAt);
+  $("#saveStatus").textContent =
+    `✔ 자동 저장됨 ${t.toLocaleDateString("ko-KR")} ${t.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}`;
+}
+
+// ---------- 유틸 ----------
+const $ = sel => document.querySelector(sel);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const cellKey = (cls, area) => `${cls}|${area}`;
+const getCell = key => state.cells[key] || { status: "none", teacher: "", memo: "" };
+
+function allClasses() {
+  const list = [];
+  state.grades.forEach(g => {
+    for (let c = 1; c <= g.classes; c++) list.push({ grade: g.grade, id: `${g.grade}-${c}` });
+  });
+  return list;
+}
+function pct(n, total) { return total ? Math.round((n / total) * 100) : 0; }
+
+// ---------- 요약 ----------
+function renderSummary() {
+  const classes = allClasses();
+  const counts = Object.fromEntries(STATUSES.map(s => [s.id, 0]));
+  const byGrade = {}, byArea = {};
+
+  classes.forEach(c => {
+    state.areas.forEach(a => {
+      const st = getCell(cellKey(c.id, a)).status;
+      counts[st]++;
+      byGrade[c.grade] ??= { total: 0, checked: 0 };
+      byArea[a] ??= { total: 0, checked: 0 };
+      byGrade[c.grade].total++; byArea[a].total++;
+      if (st === "checked") { byGrade[c.grade].checked++; byArea[a].checked++; }
+    });
+  });
+
+  const total = classes.length * state.areas.length;
+  const overall = pct(counts.checked, total);
+  const rows = (obj, fmt) => Object.entries(obj).map(([k, v]) => {
+    const p = pct(v.checked, v.total);
+    return `<div class="row"><span class="label" title="${esc(fmt(k))}">${esc(fmt(k))}</span>
+      <div class="bar"><span style="width:${p}%"></span></div><span class="pct">${p}%</span></div>`;
+  }).join("");
+
+  $("#summary").innerHTML = `
+    <h2>진행률 요약 <span class="hint">(점검완료 기준)</span></h2>
+    <div class="overall"><strong>${overall}%</strong>
+      <div class="bar"><span style="width:${overall}%"></span></div>
+      <span class="hint">${counts.checked} / ${total}칸</span></div>
+    <div class="counts">${STATUSES.map(s =>
+      `<span class="chip ${s.cls}">${s.label} ${counts[s.id]}</span>`).join("")}</div>
+    <div class="sub-progress">
+      <div><h3>학년별</h3>${rows(byGrade, k => `${k}학년`) || '<span class="hint">학년 없음</span>'}</div>
+      <div><h3>영역별</h3>${rows(byArea, k => k) || '<span class="hint">영역 없음</span>'}</div>
+    </div>`;
+}
+
+// ---------- 필터 ----------
+function renderGradeFilter() {
+  const sel = $("#gradeFilter");
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">전체</option>` +
+    state.grades.map(g => `<option value="${g.grade}">${g.grade}학년</option>`).join("");
+  if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+}
+function cellMatches(status) {
+  if ($("#onlyFix").checked) return status === "fix";
+  if ($("#onlyIncomplete").checked) return status !== "checked";
+  return true;
+}
+
+// ---------- 현황표 ----------
+function renderTable() {
+  const gradeF = $("#gradeFilter").value;
+  const filtering = $("#onlyFix").checked || $("#onlyIncomplete").checked;
+  const classes = allClasses().filter(c => !gradeF || String(c.grade) === gradeF);
+
+  if (!classes.length || !state.areas.length) {
+    $("#tableWrap").innerHTML = `<div class="empty">⚙ 설정에서 학년·학급·영역을 입력해 주세요.</div>`;
+    return;
+  }
+
+  const body = classes.map(c => {
+    const cells = state.areas.map(a => ({ a, key: cellKey(c.id, a), data: getCell(cellKey(c.id, a)) }));
+    if (filtering && !cells.some(x => cellMatches(x.data.status))) return "";
+    const tds = cells.map(({ key, data }) => {
+      const s = statusOf(data.status);
+      const dim = filtering && !cellMatches(data.status) ? " dim" : "";
+      const memo = data.memo ? " memo" : "";
+      const tip = [s.label, data.teacher && `담당: ${data.teacher}`, data.memo && `메모: ${data.memo}`]
+        .filter(Boolean).join("\n");
+      return `<td class="cell ${s.cls}${memo}${dim}" data-key="${esc(key)}" title="${esc(tip)}">
+        ${s.label}${data.teacher ? `<span class="t">${esc(data.teacher)}</span>` : ""}</td>`;
+    }).join("");
+    return `<tr><td class="cls">${c.id}</td>
+      <td class="homeroom"><input data-cls="${c.id}" value="${esc(state.homeroom[c.id] || "")}" placeholder="담임"></td>
+      ${tds}</tr>`;
+  }).join("");
+
+  $("#tableWrap").innerHTML = body
+    ? `<table><thead><tr><th>학급</th><th>담임</th>${state.areas.map(a => `<th>${esc(a)}</th>`).join("")}</tr></thead>
+       <tbody>${body}</tbody></table>`
+    : `<div class="empty">🎉 조건에 맞는 칸이 없습니다.</div>`;
+}
+
+function renderAll() {
+  $("#sampleNotice").hidden = !state.sample;
+  renderSaveStatus();
+  renderSummary();
+  renderGradeFilter();
+  renderTable();
+}
+
+// ---------- 칸 편집 ----------
+$("#statusPick").innerHTML = STATUSES.map(s =>
+  `<label class="${s.cls}"><input type="radio" name="status" value="${s.id}"><span>${s.label}</span></label>`).join("");
+
+$("#tableWrap").addEventListener("click", e => {
+  const td = e.target.closest("td.cell");
+  if (!td) return;
+  editingKey = td.dataset.key;
+  const [cls, area] = editingKey.split("|");
+  const data = getCell(editingKey);
+  const [g, c] = cls.split("-");
+  $("#cellTitle").textContent = `${g}학년 ${c}반 · ${area}`;
+  $(`#statusPick input[value="${data.status}"]`).checked = true;
+  $("#cellTeacher").value = data.teacher;
+  $("#cellTeacher").placeholder = state.homeroom[cls] ? `예: ${state.homeroom[cls]} (담임)` : "예: 김선생";
+  $("#cellMemo").value = data.memo;
+  $("#cellDialog").showModal();
+});
+
+$("#cellDialog").addEventListener("close", () => {
+  if ($("#cellDialog").returnValue !== "save" || !editingKey) return;
+  state.cells[editingKey] = {
+    status: $("#statusPick input:checked")?.value || "none",
+    teacher: $("#cellTeacher").value.trim(),
+    memo: $("#cellMemo").value.trim(),
+  };
+  editingKey = null;
+  save(); renderAll();
+});
+
+// 담임 이름: 표에서 바로 입력
+$("#tableWrap").addEventListener("change", e => {
+  const input = e.target.closest("td.homeroom input");
+  if (!input) return;
+  const name = input.value.trim();
+  if (name) state.homeroom[input.dataset.cls] = name;
+  else delete state.homeroom[input.dataset.cls];
+  save();
+});
+
+["#gradeFilter", "#onlyIncomplete", "#onlyFix"].forEach(id =>
+  $(id).addEventListener("change", e => {
+    // 두 필터는 동시에 하나만
+    if (id === "#onlyFix" && e.target.checked) $("#onlyIncomplete").checked = false;
+    if (id === "#onlyIncomplete" && e.target.checked) $("#onlyFix").checked = false;
+    renderTable();
+  }));
+
+$("#legend").innerHTML = STATUSES.map(s => `<span class="chip ${s.cls}">${s.label}</span>`).join("");
+
+// ---------- 설정 ----------
+function gradeRowHTML(g = "", n = "") {
+  return `<div class="grade-row">
+    <input type="number" min="1" max="12" class="g" value="${g}" placeholder="학년"> 학년
+    <input type="number" min="1" max="30" class="n" value="${n}" placeholder="학급 수"> 개 학급
+    <button type="button" class="remove">삭제</button></div>`;
+}
+
+$("#openSettings").addEventListener("click", () => {
+  $("#gradeRows").innerHTML = state.grades.map(g => gradeRowHTML(g.grade, g.classes)).join("");
+  $("#areasInput").value = state.areas.join("\n");
+  $("#settingsDialog").showModal();
+});
+$("#addGrade").addEventListener("click", () =>
+  $("#gradeRows").insertAdjacentHTML("beforeend", gradeRowHTML()));
+$("#gradeRows").addEventListener("click", e => {
+  if (e.target.classList.contains("remove")) e.target.closest(".grade-row").remove();
+});
+
+$("#settingsDialog").addEventListener("close", () => {
+  if ($("#settingsDialog").returnValue !== "save") return;
+  const grades = [...document.querySelectorAll("#gradeRows .grade-row")]
+    .map(r => ({ grade: parseInt(r.querySelector(".g").value), classes: parseInt(r.querySelector(".n").value) }))
+    .filter(g => g.grade > 0 && g.classes > 0);
+  // 같은 학년이 두 번 들어오면 뒤의 값 사용
+  const unique = [...new Map(grades.map(g => [g.grade, g])).values()].sort((a, b) => a.grade - b.grade);
+  const areas = [...new Set($("#areasInput").value.split("\n").map(s => s.trim()).filter(Boolean))];
+  state.grades = unique;
+  state.areas = areas;
+  save(); renderAll();
+});
+
+$("#resetAll").addEventListener("click", () => {
+  if (!confirm("모든 기록(상태·담임·메모)을 지우고 빈 표로 시작할까요?\n학년·학급·영역 설정은 그대로 둡니다. 이 작업은 되돌릴 수 없습니다.")) return;
+  state = { ...structuredClone(DEFAULT_STATE), grades: state.grades, areas: state.areas };
+  save();
+  $("#settingsDialog").close("cancel");
+  renderAll();
+});
+
+$("#loadSample").addEventListener("click", () => {
+  if (!confirm("지금 기록을 모두 지우고 연습용 가상 예시 자료로 바꿀까요?\n이 작업은 되돌릴 수 없습니다.")) return;
+  state = makeSample();
+  save();
+  $("#settingsDialog").close("cancel");
+  renderAll();
+});
+
+if (!state.savedAt) save(); // 처음 연 경우 예시 자료를 바로 저장
+renderAll();
+</script>
+</body>
+</html>

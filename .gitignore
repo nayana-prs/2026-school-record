@@ -1,0 +1,20 @@
+# 환경 변수·비밀 정보
+.env
+.env.*
+*.key
+*.pem
+secrets*
+
+# 실제 자료(개인정보가 담길 수 있는 파일)
+*.xlsx
+*.xls
+*.csv
+*.hwp
+*.hwpx
+
+# 편집기·운영체제 파일
+.claude/
+.vscode/
+Thumbs.db
+desktop.ini
+.DS_Store
